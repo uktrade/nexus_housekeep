@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 params_list = ['lite-builds-raw','lite-builds']                                 #List of Assets.
 files_to_keep = 10                                                              #No of files to keep that are older then 3 months.
 nexus_url = 'http://nexus.mgmt.licensing.service.trade.gov.uk.test'
-nexus_home_dir = '/Users/jay/Documents/Work/DIT/Work/WebOps/nexus_clean'
+nexus_home_dir = '/nexus-data'
 logging.basicConfig(filename=nexus_home_dir + '/NexusHousekeep.log', level=logging.INFO)
 logging.info('Date of clean: %s', datetime.now())
                                                                                 #Create list of files to delete that are older the 3 months
