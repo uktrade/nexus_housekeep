@@ -7,21 +7,22 @@ from datetime import datetime, timedelta
 #import pdb; pdb.set_trace()
 
 params_list = ['lite-builds-raw','lite-builds']                                 #List of Assets.
-files_to_keep = 10                                                              #No of files to keep that are older then 3 months.
-nexus_url = 'http://nexus.mgmt.licensing.service.trade.gov.uk.test'
+files_to_keep = 10                                                              #No of releases to keep that are older then 3 months.
+nexus_url = 'https://nexus.ci.uktrade.io'
 nexus_home_dir = '/nexus-data/nexus_housekeep'
+nexus_username = 'admin'
+nexus_password = 'admin123'
 logging.basicConfig(filename=nexus_home_dir + '/NexusHousekeep.log', level=logging.INFO)
 logging.info('Date of clean: %s', datetime.now())
                                                                                 #Create list of files to delete that are older the 3 months
                                                                                 #and cull the list leaving only (files_to_keep) number of group of files.
 def make_cull_list(full_list, team_name_field, app_name_field, file_date_field):
     not_date_stamped = 0
-    #print ('Total files: ' + str(len(full_list)))
+    print ('Total files: ' + str(len(full_list)))
 
     sorted_list = []
     sorted_list = (sorted(full_list))                                           #Order the list date.
     test_date = datetime.now() - timedelta(days=90)
-
     olderthan3months_list = []                                                  #List of files that are older then 3 Months.
     for current_name in sorted_list:
         get_date = current_name[file_date_field]
@@ -31,8 +32,8 @@ def make_cull_list(full_list, team_name_field, app_name_field, file_date_field):
                 olderthan3months_list.append(current_name)
         except:
             not_date_stamped += 1
-    #print ('No of files older then 3 Months: ' + str(len(olderthan3months_list)))
-
+    print ('No of files older then 3 Months: ' + str(len(olderthan3months_list)))
+    
     grouped_items = defaultdict(list)                                           #Remove number of (files_to_keep) and create new list.
     for current_items in olderthan3months_list:
         grouped_items[current_items[team_name_field]].append(current_items)
@@ -53,9 +54,13 @@ def make_cull_list(full_list, team_name_field, app_name_field, file_date_field):
         for _file in files[1]:
             delete_list.append(os.path.join(*_file))
 
+    print 'Files to delete->'
     for current_item in delete_list:                                            #Use the Nexus API to mark files for deletion.
-        logging.info('Deleting -> %s', current_item)
-        #resp = requests.delete(nexus_url + '/repository/' + current_item , auth=('admin','admin123'))
+        path_of_file = os.path.join(*current_item.split('/')[:-1])              #Grab the full file path only.
+        item_id = current_item.split('/')[-1]                                   #Grab just the item id.
+        logging.info('Deleting -> %s', path_of_file)
+        print ('Path: ' + path_of_file + ' File id: ' + item_id)
+        resp = requests.delete(nexus_url + '/service/siesta/rest/beta/assets/' + item_id, auth=(nexus_username,nexus_password))
     logging.info('Total files marked for deletion for %s asset: %d', full_list[0][0], len(delete_list))
     print 'Total files marked for deletion for', full_list[0][0], 'asset: ', len(delete_list)   
 
@@ -63,17 +68,15 @@ for asset in params_list:                                                       
     params = {'repositoryId': asset}
     ctoken = None
     full_list = []
-
                                                                                 #Retrieve a list of all assets from API, Nexus will return
     while True:                                                                 #a set number of items per page therefore a page token is required.
         if ctoken:
             params['continuationToken'] = ctoken
-        response = requests.get(nexus_url + '/service/siesta/rest/v1/assets', params = params, auth=('admin','admin123'))
+        response = requests.get(nexus_url + '/service/siesta/rest/beta/assets', params = params, auth=(nexus_username,nexus_password))
         data = response.json()
-
         for item in data['items']:                                              #Extract filename and location from list.
-            name = item['coordinates']
-            full_list.append([asset] + name.split('/'))
+            name = item['path']
+            full_list.append([asset] + name.split('/') + [item['id']])
         ctoken = data.get('continuationToken', None)
         if not ctoken:
             break
